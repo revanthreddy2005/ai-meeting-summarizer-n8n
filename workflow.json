@@ -1,0 +1,257 @@
+{
+  "name": "My workflow 4",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "meeting-summary",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9b0d78f5-b9cf-4726-b1ca-2c4138ef7302",
+      "name": "Webhook",
+      "webhookId": "72fc28a9-5ee5-422e-afae-c4208245c776"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d705c593-86c5-4c89-9f4a-7216bb22c6d0",
+              "name": "transcript",
+              "value": "={{$json[\"body\"][\"transcript\"]}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        128,
+        0
+      ],
+      "id": "b90e1da4-5cf5-4852-9273-5ccc3298603f",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR API KEY HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a meeting summariser. You MUST respond with ONLY a JSON object, no explanation, no markdown, no extra text. Analyse this transcript:\\n\\n{{ $json.transcript }}\\n\\nRespond ONLY with this JSON structure:\\n{\\\"summary\\\": \\\"2-3 sentence summary here\\\", \\\"action_items\\\": [{\\\"task\\\": \\\"task name\\\", \\\"owner\\\": \\\"person name\\\", \\\"deadline\\\": \\\"date or ASAP\\\"}]}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        336,
+        0
+      ],
+      "id": "3b209bd2-ec8c-4db8-90c2-e341afc65b52",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "701194b1-51bc-42a2-9501-52d22241dba1",
+              "name": "ai_output",
+              "value": "={{$json[\"choices\"][0][\"message\"][\"content\"]}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        544,
+        0
+      ],
+      "id": "fcf09904-1ee3-4f7e-ba9c-563650f14777",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.ai_output;\nconst parsed = JSON.parse(raw);\n\nreturn [{\n  json: {\n    summary: parsed.summary,\n    action_items: parsed.action_items\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        0
+      ],
+      "id": "5e33886c-420f-4d7d-bd76-696de03850d7",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "3327a285-31a9-804b-9195-d1809d41e5ec",
+          "mode": "list",
+          "cachedResultName": "Meeting Summaries",
+          "cachedResultUrl": "https://www.notion.so/3327a28531a9804b9195d1809d41e5ec"
+        },
+        "title": "={{ $json.summary }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Action Items|rich_text",
+              "textContent": "={{ $json.action_items.map(i => i.owner + ': ' + i.task + ' by ' + i.deadline).join(', ') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ],
+      "id": "3f030085-5988-4d2f-9a63-12f922385901",
+      "name": "Create a database page",
+      "credentials": {
+        "notionApi": {
+          "id": "dhGwDKZBMUxCYe65",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "meetings",
+          "mode": "name"
+        },
+        "text": "=*Meeting Summary* {{ $json.property_summary }}  *Action Items* {{ $json.property_action_items }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1168,
+        0
+      ],
+      "id": "e58c6301-e81d-47d2-86cf-8be22972083e",
+      "name": "Send a message",
+      "webhookId": "33f5ea64-96df-4db6-8009-61667798b41a",
+      "credentials": {
+        "slackApi": {
+          "id": "PDuwAqQfT0w6sThL",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a database page": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7a268279-d366-4b94-9152-436da3e58630",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dac3c5214a47c5c3e1d9c0412f0d9373f76ab2f0c9ce357219e73aa11a7fcb4d"
+  },
+  "id": "3Uqc2yTTKc4L2KlH",
+  "tags": []
+}
